@@ -140,6 +140,39 @@ tidy(modelo_2) %>%
   tab_header(title = "Modelo 2: Ventas ~ Gasto_Publicidad + Holliday_seasson") %>%
   tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
 
+# ============================================================
+# 4. TRANSFORMACIÓN LOGARÍTMICA
+# ============================================================
+
+opry <- opry %>%
+  mutate(Log_Ventas = log(Ventas))
+
+modelo_3 <- lm(Log_Ventas ~ Gasto_Publicidad + Holliday_seasson, data = opry)
+options(scipen = 999)
+summary(modelo_3)
+
+#Tabla Resumen
+tidy(modelo_3) %>%
+  mutate(
+    across(where(is.numeric), ~ round(., 6)),
+    Sig = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      p.value < 0.10  ~ ".",
+      TRUE            ~ ""
+    )
+  ) %>%
+  rename(Variable = term, Coeficiente = estimate,
+         Error_Est = std.error, t = statistic, p_valor = p.value) %>%
+  bind_rows(
+    tibble(Variable = "R²",      Coeficiente = round(summary(modelo_3)$r.squared, 4)),
+    tibble(Variable = "R² Adj.", Coeficiente = round(summary(modelo_3)$adj.r.squared, 4))
+  ) %>%
+  gt() %>%
+  tab_header(title = "Modelo 3: Log(Ventas) ~ Gasto_Publicidad + Holliday_seasson") %>%
+  tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
+
 
 
 
