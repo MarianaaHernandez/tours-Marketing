@@ -101,6 +101,47 @@ tidy(modelo) %>%
   tab_header(title = "Modelo 1: Ventas ~ Gasto_Publicidad") %>%
   tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
 
+# ============================================================
+# 3. REGRESIÓN CON DUMMY DE ESTACIONALIDAD
+# ============================================================
+
+# La variable Holliday_seasson ya está en los datos:
+# marca con 1 las semanas de bajas ventas de diciembre y enero
+# (2023-12-30, 2024-01-06 a 2024-01-27, 2024-12-28, 2025-01-04 a 2025-01-25)
+
+# Verificar:
+opry %>%
+  filter(Holliday_seasson == 1) %>%
+  select(Date, Ventas, Holliday_seasson)
+
+modelo_2 <- lm(Ventas ~ Gasto_Publicidad + Holliday_seasson, data = opry)
+options(scipen = 999)
+summary(modelo_2)
+
+#Tabla resumen
+tidy(modelo_2) %>%
+  mutate(
+    across(where(is.numeric), ~ round(., 4)),
+    Sig = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      p.value < 0.10  ~ ".",
+      TRUE            ~ ""
+    )
+  ) %>%
+  rename(Variable = term, Coeficiente = estimate,
+         Error_Est = std.error, t = statistic, p_valor = p.value) %>%
+  bind_rows(
+    tibble(Variable = "R²",      Coeficiente = round(summary(modelo_2)$r.squared, 4)),
+    tibble(Variable = "R² Adj.", Coeficiente = round(summary(modelo_2)$adj.r.squared, 4))
+  ) %>%
+  gt() %>%
+  tab_header(title = "Modelo 2: Ventas ~ Gasto_Publicidad + Holliday_seasson") %>%
+  tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
+
+
+
 
 
 
