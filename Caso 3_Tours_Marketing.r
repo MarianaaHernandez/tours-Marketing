@@ -141,18 +141,24 @@ tidy(modelo_2) %>%
   tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
 
 # ============================================================
-# 4. TRANSFORMACIÓN LOGARÍTMICA
+# 4. TRANSFORMACIÓN LOGARÍTMICA  (+  Google_Trends_Opry)
 # ============================================================
 
-opry <- opry %>%
+opry <- opry |>
   mutate(Log_Ventas = log(Ventas))
 
-modelo_3 <- lm(Log_Ventas ~ Gasto_Publicidad + Holliday_seasson, data = opry)
+# Se agrega Google_Trends_Opry como nueva variable continua al modelo
+# logarítmico. Captura el interés de búsqueda en Google, un proxy de la
+# demanda anticipada independiente del gasto y de la estacionalidad baja.
+modelo_3 <- lm(
+  Log_Ventas ~ Gasto_Publicidad + Holliday_seasson + Google_Trends_Opry,
+  data = opry
+)
 options(scipen = 999)
 summary(modelo_3)
 
-#Tabla Resumen
-tidy(modelo_3) %>%
+# Tabla Resumen
+tidy(modelo_3) |>
   mutate(
     across(where(is.numeric), ~ round(., 6)),
     Sig = case_when(
@@ -162,46 +168,209 @@ tidy(modelo_3) %>%
       p.value < 0.10  ~ ".",
       TRUE            ~ ""
     )
-  ) %>%
-  rename(Variable = term, Coeficiente = estimate,
-         Error_Est = std.error, t = statistic, p_valor = p.value) %>%
+  ) |>
+  rename(Variable  = term, Coeficiente = estimate,
+         Error_Est = std.error, t = statistic, p_valor = p.value) |>
   bind_rows(
-    tibble(Variable = "R²",      Coeficiente = round(summary(modelo_3)$r.squared, 4)),
-    tibble(Variable = "R² Adj.", Coeficiente = round(summary(modelo_3)$adj.r.squared, 4))
+    tibble(Variable = "R²",
+           Coeficiente = round(summary(modelo_3)$r.squared, 4)),
+    tibble(Variable = "R² Adj.",
+           Coeficiente = round(summary(modelo_3)$adj.r.squared, 4))
+  ) |>
+  gt() |>
+  tab_header(
+    title    = paste(
+      "Modelo 3: Log(Ventas) ~",
+      "Gasto_Publicidad + Holliday_seasson + Google_Trends_Opry"
+    ),
+    subtitle = "Nueva variable continua: Google Trends Opry"
+  ) |>
+  tab_source_note(
+    "*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10"
+  )
+
+# ============================================================
+# 5. Modelo propio  (+  dummy temporada_alta)
+# ============================================================
+
+library(broom)
+
+# Nueva dummy: temporada_alta
+# Marca con 1 las semanas de junio, julio y agosto (alta temporada turística
+# en Nashville). Se espera coeficiente positivo y significativo, lo que
+# evidenciará un buen ajuste al capturar el efecto de verano.
+opry <- opry |>
+  mutate(
+    temporada_alta = if_else(
+      lubridate::month(as.Date(Date)) %in% c(6, 7, 8), 1L, 0L
+    )
+  )
+
+# Verificar activación de las dummies
+opry |> filter(thanksgiving == 1)               |> select(Date, Ventas)
+opry |> filter(week_before_christmas == 1)      |> select(Date, Ventas)
+opry |> filter(two_weeks_before_christmas == 1) |> select(Date, Ventas)
+opry |> filter(temporada_alta == 1)             |> select(Date, Ventas)
+
+# Modelo 4
+modelo_4 <- lm(
+  Log_Ventas ~ Gasto_Publicidad + Holliday_seasson +
+    Flights_to_Nashville + Google_Trends_Opry +
+    thanksgiving + week_before_christmas +
+    two_weeks_before_christmas + temporada_alta,
+  data = opry
+)
+
+options(scipen = 999)
+summary(modelo_4)
+
+# Tabla resumen modelo 4
+tidy(modelo_4) |>
+  mutate(
+    across(where(is.numeric), ~ round(., 6)),
+    Sig = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      p.value < 0.10  ~ ".",
+      TRUE            ~ ""
+    )
+  ) |>
+  rename(Variable    = term,
+         Coeficiente = estimate,
+         Error_Est   = std.error,
+         t           = statistic,
+         p_valor     = p.value) |>
+  bind_rows(
+    tibble(Variable = "R²",
+           Coeficiente = round(summary(modelo_4)$r.squared, 4)),
+    tibble(Variable = "R² Adj.",
+           Coeficiente = round(summary(modelo_4)$adj.r.squared, 4))
+  ) |>
+  gt() |>
+  tab_header(
+    title    = "Modelo 4 (Propio)",
+    subtitle = paste(
+      "Log(Ventas) ~ Gasto + Holliday + Flights + Google Trends",
+      "+ Dummies Navidad/Thanksgiving + temporada_alta"
+    )
+  ) |>
+  tab_source_note(
+    "*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10"
+  )
+
+# ============================================================
+# 6. Exportación de resultados a Word
+# ============================================================
+
+library(flextable)
+library(officer)
+
+tabla_coef <- tidy(modelo_4) %>%
+  mutate(
+    across(where(is.numeric), ~ round(., 4)),
+    Sig = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      p.value < 0.10  ~ ".",
+      TRUE            ~ ""
+    )
   ) %>%
-  gt() %>%
-  tab_header(title = "Modelo 3: Log(Ventas) ~ Gasto_Publicidad + Holliday_seasson") %>%
-  tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
+  rename(
+    Variable       = term,
+    Coeficiente    = estimate,
+    `Error Est.`   = std.error,
+    `t`            = statistic,
+    `p-valor`      = p.value,
+    `Sig.`         = Sig
+  ) %>%
+  bind_rows(
+    tibble(Variable = "R²",      Coeficiente = round(summary(modelo_4)$r.squared,     4)),
+    tibble(Variable = "R² Adj.", Coeficiente = round(summary(modelo_4)$adj.r.squared, 4))
+  )
+
+# Construir tabla con flextable
+ft <- flextable(tabla_coef) %>%
+  set_caption(
+    caption = as_paragraph(
+      as_chunk("Modelo 4: Log(Ventas) — Resultados de Regresión",
+               props = fp_text_default(bold = TRUE))
+    )
+  ) %>%
+  add_footer_lines("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10") %>%
+  theme_vanilla() %>%
+  bold(part = "header") %>%
+  bg(bg = "#DEEAF1", part = "header") %>%
+  align(align = "center", part = "all") %>%
+  align(j = 1, align = "left",  part = "all") %>%
+  autofit()
+
+# Crear documento Word y exportar
+doc <- read_docx() %>%
+  body_add_par("Resultados del Modelo de Regresión – Opry Tours",
+               style = "heading 1") %>%
+  body_add_par("") %>%
+  body_add_par(
+    paste(
+      "El Modelo 4 regresa el logaritmo natural de las ventas sobre el gasto en publicidad,",
+      "dos dummies de estacionalidad (temporada baja y Navidad), vuelos hacia Nashville,",
+      "Google Trends del Opry y dummies de Thanksgiving y la semana previa a Navidad."
+    ),
+    style = "Normal"
+  ) %>%
+  body_add_par("") %>%
+  body_add_flextable(ft)
+
+print(doc, target = "Resultados_Modelo4.docx")
+message("Exportado: Resultados_Modelo4.docx")
 
 # ============================================================
-# 5. Cree su propio modelo
+# 7. Reflexión final – diagnóstico del modelo
 # ============================================================
-# - Agregue al menos UNA variable nueva ,
-#   (ejemplo: Flights_to_Nashville, unemployment, cpi, etc...)
-# También pueden mirar las ventas y ver si algun pico o valle muy pronunciado cuadra con un holliday que no este incluido en la base de datos y
-# ustedes crearla y agregarla al modelo.
-# - Use como dependiente Log_Ventas.
-# - Estime el modelo y analice los resultados.
-#
-# Preguntas:
-# 1. Interprete el coeficiente de Gasto_Publicidad.
-# 2. Interprete el coeficiente de alguna dummy.
-# 3. Interprete el coeficiente de la nueva variable que agregó.
 
-# ============================================================
-# 6. Exportación de resultados
-# ============================================================
-# - Exporte los resultados de su modelo a Word.
-# - Pista: use librerías como broom, flextable y officer.
-# - Puede crear una tabla con los coeficientes y R², 
-#   y agregar un footnote con la interpretación de las estrellas.
+library(lmtest)
+library(car)
 
-# ============================================================
-# 7. Reflexión final
-# ============================================================
-# - ¿Qué limitaciones tiene su modelo?
-# - ¿Por qué creen que es un buen o mal modelo para predecir las ventas?
+# --- Gráficos de diagnóstico (4 en uno) ---
+par(mfrow = c(2, 2))
+plot(modelo_4)
+par(mfrow = c(1, 1))
 
+# --- Normalidad de residuos (Shapiro-Wilk) ---
+# H0: residuos son normales. p > 0.05 → no se rechaza normalidad
+shapiro.test(residuals(modelo_4))
 
+# --- Heterocedasticidad (Breusch-Pagan) ---
+# H0: varianza constante. p > 0.05 → homocedasticidad
+bptest(modelo_4)
 
+# --- Autocorrelación de residuos (Durbin-Watson) ---
+# H0: no autocorrelación. Valor cercano a 2 → sin autocorrelación
+dwtest(modelo_4)
+
+# --- Multicolinealidad (VIF) ---
+# VIF > 5 indica multicolinealidad moderada; > 10, severa
+vif(modelo_4)
+
+# --- Comparación de los 4 modelos ---
+tibble(
+  Modelo = c("M1: Naive",
+             "M2: + Holliday",
+             "M3: Log + Holliday + Google Trends",
+             "M4: Propio + temporada_alta"),
+  R2_Adj = c(
+    summary(modelo)$adj.r.squared,
+    summary(modelo_2)$adj.r.squared,
+    summary(modelo_3)$adj.r.squared,
+    summary(modelo_4)$adj.r.squared
+  ),
+  AIC = c(AIC(modelo), AIC(modelo_2), AIC(modelo_3), AIC(modelo_4)),
+  BIC = c(BIC(modelo), BIC(modelo_2), BIC(modelo_3), BIC(modelo_4))
+) |>
+  mutate(across(where(is.numeric), ~ round(., 4))) |>
+  gt() |>
+  tab_header(title = "Comparación de modelos") |>
+  cols_label(R2_Adj = "R² Ajustado", AIC = "AIC", BIC = "BIC") |>
+  fmt_number(columns = where(is.numeric), decimals = 4)
 
