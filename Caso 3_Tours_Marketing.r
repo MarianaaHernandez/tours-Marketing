@@ -173,6 +173,34 @@ tidy(modelo_3) %>%
   tab_header(title = "Modelo 3: Log(Ventas) ~ Gasto_Publicidad + Holliday_seasson") %>%
   tab_source_note("*** p < 0.001  |  ** p < 0.01  |  * p < 0.05  |  . p < 0.10")
 
+# ============================================================
+# 5. Cree su propio modelo
+# ============================================================
+# - Agregue al menos UNA variable nueva ,
+#   (ejemplo: Flights_to_Nashville, unemployment, cpi, etc...)
+# También pueden mirar las ventas y ver si algun pico o valle muy pronunciado cuadra con un holliday que no este incluido en la base de datos y
+# ustedes crearla y agregarla al modelo.
+# - Use como dependiente Log_Ventas.
+# - Estime el modelo y analice los resultados.
+#
+# Preguntas:
+# 1. Interprete el coeficiente de Gasto_Publicidad.
+# 2. Interprete el coeficiente de alguna dummy.
+# 3. Interprete el coeficiente de la nueva variable que agregó.
+
+# ============================================================
+# 6. Exportación de resultados
+# ============================================================
+# - Exporte los resultados de su modelo a Word.
+# - Pista: use librerías como broom, flextable y officer.
+# - Puede crear una tabla con los coeficientes y R², 
+#   y agregar un footnote con la interpretación de las estrellas.
+
+# ============================================================
+# 7. Reflexión final
+# ============================================================
+# - ¿Qué limitaciones tiene su modelo?
+# - ¿Por qué creen que es un buen o mal modelo para predecir las ventas?
 
 
 
