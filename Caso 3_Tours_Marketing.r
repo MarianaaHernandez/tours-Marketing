@@ -1,38 +1,30 @@
 # ============================================================
 # TALLER BUSINESS ANALYTICS – CASO TOUR MARKETING (OPRY)
 # ============================================================
-
+install.packages("gt")
+install.packages("broom")
+install.packages("flextable")
+install.packages("officer")
 library(readr)
 library(dplyr)
 library(ggplot2)
 library(psych)
 library(gt)
+library(broom)
 
 
 # ============================================================
 # 1. EXPLORACIÓN INICIAL
 # ============================================================
-
-opry <- read_csv("Opry.csv")
+setwd('/Users/maru/Desktop/Javeriana/4/Analitica de los negocios/tours-Marketing')
+opry <- read_csv("Opry copy.csv")
 
 glimpse(opry)
 summary(opry)
 head(opry)
 
 # Resumen estadístico de variables clave
-opry %>%
-  select(Gasto_Publicidad, Ventas, Ordenes, sp, mei,
-         Google_Trends_Opry, Google_Trend_Nashville) %>%
-  describe() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column(var = "Variable") %>%
-  select(Variable, n, mean, sd, min, max) %>%
-  mutate(across(where(is.numeric), ~ round(., 2))) %>%
-  gt() %>%
-  tab_header(title = "Resumen Estadístico") %>%
-  cols_label(n = "N", mean = "Media", sd = "Desv. Est.",
-             min = "Mínimo", max = "Máximo") %>%
-  fmt_number(columns = where(is.numeric), decimals = 2, use_seps = TRUE)
+describe(opry %>% select(Ventas, Gasto_Publicidad, Ordenes, sp, mei, Google_Trends_Opry, Google_Trend_Nashville))
 
 # Revisar valores NA
 colSums(is.na(opry))
@@ -328,49 +320,3 @@ message("Exportado: Resultados_Modelo4.docx")
 # ============================================================
 # 7. Reflexión final – diagnóstico del modelo
 # ============================================================
-
-library(lmtest)
-library(car)
-
-# --- Gráficos de diagnóstico (4 en uno) ---
-par(mfrow = c(2, 2))
-plot(modelo_4)
-par(mfrow = c(1, 1))
-
-# --- Normalidad de residuos (Shapiro-Wilk) ---
-# H0: residuos son normales. p > 0.05 → no se rechaza normalidad
-shapiro.test(residuals(modelo_4))
-
-# --- Heterocedasticidad (Breusch-Pagan) ---
-# H0: varianza constante. p > 0.05 → homocedasticidad
-bptest(modelo_4)
-
-# --- Autocorrelación de residuos (Durbin-Watson) ---
-# H0: no autocorrelación. Valor cercano a 2 → sin autocorrelación
-dwtest(modelo_4)
-
-# --- Multicolinealidad (VIF) ---
-# VIF > 5 indica multicolinealidad moderada; > 10, severa
-vif(modelo_4)
-
-# --- Comparación de los 4 modelos ---
-tibble(
-  Modelo = c("M1: Naive",
-             "M2: + Holliday",
-             "M3: Log + Holliday + Google Trends",
-             "M4: Propio + temporada_alta"),
-  R2_Adj = c(
-    summary(modelo)$adj.r.squared,
-    summary(modelo_2)$adj.r.squared,
-    summary(modelo_3)$adj.r.squared,
-    summary(modelo_4)$adj.r.squared
-  ),
-  AIC = c(AIC(modelo), AIC(modelo_2), AIC(modelo_3), AIC(modelo_4)),
-  BIC = c(BIC(modelo), BIC(modelo_2), BIC(modelo_3), BIC(modelo_4))
-) |>
-  mutate(across(where(is.numeric), ~ round(., 4))) |>
-  gt() |>
-  tab_header(title = "Comparación de modelos") |>
-  cols_label(R2_Adj = "R² Ajustado", AIC = "AIC", BIC = "BIC") |>
-  fmt_number(columns = where(is.numeric), decimals = 4)
-
